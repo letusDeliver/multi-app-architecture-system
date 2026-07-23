@@ -1,6 +1,17 @@
-import { Component, OnDestroy, OnInit, Type, ViewChild, ViewContainerRef, inject, signal } from '@angular/core';
+import {
+  Component,
+  Injector,
+  OnDestroy,
+  OnInit,
+  Type,
+  ViewChild,
+  ViewContainerRef,
+  inject,
+  signal,
+} from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { loadRemoteModule } from '@angular-architects/native-federation';
+import { SHELL_API, ShellPublicApi } from '@platform/shell-api-contracts';
 
 import { PlatformManifestService } from './platform-manifest.service';
 import { ShellApiService } from './shell-api.service';
@@ -23,6 +34,14 @@ type MountState =
  * conforming" — both surface as one calm, contained "unavailable" state per
  * ARCH-2026-05 §6's error-state philosophy — but the underlying `reason` is
  * preserved for diagnostics/console.
+ *
+ * Milestone 4: this is also where ARCH-2026-03 §5 extension-point ownership
+ * is attributed. The mounted application is given a `SHELL_API` bound to a
+ * scoped wrapper this component constructs itself (`createScopedShellApi`),
+ * closing over the manifest entry's own id — the application never supplies
+ * or can forge an owner id. `ngOnDestroy` then bulk-deregisters every
+ * contribution owned by that id, the same lifecycle guarantee `cancelDialog`
+ * already gave Dialogs, generalized to an unbounded set of contributions.
  */
 @Component({
   selector: 'app-remote-mount',
@@ -48,8 +67,11 @@ export class RemoteMountComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly manifest = inject(PlatformManifestService);
   private readonly shellApi = inject(ShellApiService);
+  private readonly injector = inject(Injector);
 
   protected readonly state = signal<MountState>({ kind: 'loading' });
+
+  private mountedAppId: string | null = null;
 
   async ngOnInit(): Promise<void> {
     // A route can activate concurrently with the shell's own bootstrap (e.g.
@@ -86,8 +108,14 @@ export class RemoteMountComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.mountedAppId = entry.id;
+    const scopedInjector = Injector.create({
+      parent: this.injector,
+      providers: [{ provide: SHELL_API, useValue: this.createScopedShellApi(entry.id) }],
+    });
+
     this.mountPoint.clear();
-    this.mountPoint.createComponent(componentType);
+    this.mountPoint.createComponent(componentType, { injector: scopedInjector });
     this.state.set({ kind: 'mounted' });
   }
 
@@ -101,5 +129,29 @@ export class RemoteMountComponent implements OnInit, OnDestroy {
     // A dialog must not outlive the application that requested it
     // (Milestone 3 Architecture Validation Report) — a no-op if none is open.
     this.shellApi.cancelDialog();
+
+    // Every extension-point contribution this application registered must
+    // not outlive it either (ARCH-2026-03 §5 Principle 2) — a no-op if it
+    // registered none.
+    if (this.mountedAppId) {
+      this.shellApi.deregisterAllContributions(this.mountedAppId);
+    }
+  }
+
+  /**
+   * The one place ARCH-2026-03 §5 ownership is attributed. `ownerAppId` is
+   * closed over here, by the shell, before the mounted application's code
+   * ever runs — the application receives this object via its `SHELL_API`
+   * injection and has no way to observe, choose, or override the id it's
+   * bound to. Toast/Theme/Dialog need no such scoping (they aren't owned by
+   * any one application), so they forward straight to the singleton.
+   */
+  private createScopedShellApi(ownerAppId: string): ShellPublicApi {
+    return {
+      showToast: (request) => this.shellApi.showToast(request),
+      theme$: this.shellApi.theme$,
+      openDialog: (request) => this.shellApi.openDialog(request),
+      registerHeaderAction: (contribution) => this.shellApi.registerHeaderAction(contribution, ownerAppId),
+    };
   }
 }

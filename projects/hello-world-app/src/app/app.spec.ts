@@ -1,5 +1,11 @@
 import { TestBed } from '@angular/core/testing';
-import { SHELL_API, ShellPublicApi, ToastRequest } from '@platform/shell-api-contracts';
+import {
+  Disposer,
+  HeaderActionContribution,
+  SHELL_API,
+  ShellPublicApi,
+  ToastRequest,
+} from '@platform/shell-api-contracts';
 import { Subject } from 'rxjs';
 
 import { Component as AppRoot } from './app';
@@ -7,17 +13,20 @@ import { Component as AppRoot } from './app';
 describe('AppRoot (exposed as "./Component")', () => {
   let showToast: ReturnType<typeof vi.fn<(request: ToastRequest) => void>>;
   let openDialog: ReturnType<typeof vi.fn<(request: unknown) => Promise<unknown>>>;
+  let registerHeaderAction: ReturnType<typeof vi.fn<(contribution: HeaderActionContribution) => Disposer>>;
   let theme$: Subject<{ mode: 'light' | 'dark' }>;
 
   beforeEach(async () => {
     showToast = vi.fn();
     openDialog = vi.fn().mockResolvedValue('delete');
+    registerHeaderAction = vi.fn().mockReturnValue(vi.fn());
     theme$ = new Subject();
 
     const shellApiStub: ShellPublicApi = {
       showToast,
       theme$,
       openDialog: openDialog as unknown as ShellPublicApi['openDialog'],
+      registerHeaderAction,
     };
 
     await TestBed.configureTestingModule({
@@ -76,5 +85,38 @@ describe('AppRoot (exposed as "./Component")', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Shell theme: dark');
+  });
+
+  it('registers a header action on init — a plain-data contribution, never its own rendered UI', () => {
+    const fixture = TestBed.createComponent(AppRoot);
+    fixture.detectChanges();
+
+    expect(registerHeaderAction).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'hello-world.greet', label: 'Say hello' }),
+    );
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Header action registered: yes');
+  });
+
+  it('disposes and can re-register the header action via the returned disposer', () => {
+    const dispose = vi.fn();
+    registerHeaderAction.mockReturnValue(dispose);
+
+    const fixture = TestBed.createComponent(AppRoot);
+    fixture.detectChanges();
+
+    const [, , unregisterButton] = fixture.nativeElement.querySelectorAll('button');
+    unregisterButton.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Header action registered: no');
+
+    const [, , , registerButton] = fixture.nativeElement.querySelectorAll('button');
+    registerButton.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(registerHeaderAction).toHaveBeenCalledTimes(2);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Header action registered: yes');
   });
 });

@@ -21,6 +21,10 @@ const standaloneShellApiStub: ShellPublicApi = {
     console.info(`[standalone dev] dialog: ${request.title}`);
     return Promise.resolve(undefined);
   },
+  registerHeaderAction: (contribution) => {
+    console.info(`[standalone dev] header action registered: ${contribution.label}`);
+    return () => console.info(`[standalone dev] header action disposed: ${contribution.label}`);
+  },
 };
 
 export const appConfig: ApplicationConfig = {

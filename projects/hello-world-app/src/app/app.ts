@@ -1,6 +1,6 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
-import { SHELL_API } from '@platform/shell-api-contracts';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Disposer, SHELL_API } from '@platform/shell-api-contracts';
 
 /**
  * This is the component exposed as './Component' (federation.config.js) —
@@ -20,6 +20,10 @@ import { SHELL_API } from '@platform/shell-api-contracts';
  * (Service API), theme$ is shell → application (live context as Observable).
  * Milestone 3 adds openDialog() — application → shell request/response —
  * completing the three communication shapes from ARCH-2026-03 §3/§4.
+ * Milestone 4 adds registerHeaderAction() — this component never renders
+ * the action itself, only registers a plain-data contribution; the shell's
+ * HeaderActionsHostComponent owns rendering it in the header, and owns
+ * removing it automatically the moment this application is unmounted.
  */
 @Component({
   selector: 'app-root',
@@ -34,14 +38,51 @@ import { SHELL_API } from '@platform/shell-api-contracts';
     @if (lastDialogResult(); as result) {
       <p>Shell dialog resolved with: {{ result }}</p>
     }
+    <p>Header action registered: {{ headerActionRegistered() ? 'yes' : 'no' }}</p>
+    <button type="button" (click)="unregisterHeaderAction()" [disabled]="!headerActionRegistered()">
+      Unregister header action
+    </button>
+    <button type="button" (click)="registerHeaderAction()" [disabled]="headerActionRegistered()">
+      Register header action again
+    </button>
   `,
 })
-class AppRoot {
+class AppRoot implements OnInit, OnDestroy {
   protected readonly shellApi = inject(SHELL_API);
   protected readonly lastDialogResult = signal<string | undefined>(undefined);
+  protected readonly headerActionRegistered = signal(false);
+
+  private disposeHeaderAction: Disposer | null = null;
+
+  ngOnInit(): void {
+    this.registerHeaderAction();
+  }
+
+  ngOnDestroy(): void {
+    // Not required for correctness — the shell auto-deregisters every
+    // contribution this application owns at Unmount regardless — but
+    // calling the disposer here too proves it stays safe even when the
+    // manual and automatic teardown paths both fire for the same entry.
+    this.disposeHeaderAction?.();
+  }
 
   protected notifyShell(): void {
     this.shellApi.showToast({ message: 'Hello from hello-world-app', severity: 'info' });
+  }
+
+  protected registerHeaderAction(): void {
+    this.disposeHeaderAction = this.shellApi.registerHeaderAction({
+      id: 'hello-world.greet',
+      label: 'Say hello',
+      onInvoke: () => this.shellApi.showToast({ message: 'Hello from the header!', severity: 'info' }),
+    });
+    this.headerActionRegistered.set(true);
+  }
+
+  protected unregisterHeaderAction(): void {
+    this.disposeHeaderAction?.();
+    this.disposeHeaderAction = null;
+    this.headerActionRegistered.set(false);
   }
 
   protected async confirmViaShell(): Promise<void> {

@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { Disposer, SHELL_API } from '@platform/shell-api-contracts';
 
 vi.mock('@angular-architects/native-federation', () => ({
   loadRemoteModule: vi.fn(),
@@ -22,6 +23,26 @@ const HEALTHY_ENTRY: RegisteredApplication = {
 
 @Component({ selector: 'app-fake-remote', template: 'fake remote content' })
 class FakeRemoteComponent {}
+
+let capturedHeaderActionDisposer: Disposer | undefined;
+
+/**
+ * Registers a header action from inside the mounted application's own DI
+ * context — the way a real remote application would, via `inject(SHELL_API)`
+ * — to prove RemoteMountComponent's scoped wrapper attributes ownership
+ * itself rather than trusting anything the application supplies.
+ */
+@Component({ selector: 'app-fake-remote-with-header-action', template: '' })
+class FakeRemoteComponentWithHeaderAction {
+  constructor() {
+    const shellApi = inject(SHELL_API);
+    capturedHeaderActionDisposer = shellApi.registerHeaderAction({
+      id: 'remote.action',
+      label: 'Remote Action',
+      onInvoke: () => {},
+    });
+  }
+}
 
 function setUp(mountPath: string, registered: readonly RegisteredApplication[]) {
   const manifestStub = {
@@ -55,6 +76,7 @@ async function settle(fixture: ReturnType<typeof setUp>): Promise<void> {
 describe('RemoteMountComponent', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    capturedHeaderActionDisposer = undefined;
   });
 
   it('renders a contained "not registered" state for a path with no matching manifest entry', async () => {
@@ -113,5 +135,48 @@ describe('RemoteMountComponent', () => {
 
     expect(await pending).toBeUndefined();
     expect(shellApi.dialog()).toBeNull();
+  });
+
+  it('attributes a header action registered by the mounted application to its own manifest entry id, never a self-declared one', async () => {
+    vi.mocked(loadRemoteModule).mockResolvedValue({ Component: FakeRemoteComponentWithHeaderAction });
+
+    const fixture = setUp('hello-world', [HEALTHY_ENTRY]);
+    await settle(fixture);
+
+    const shellApi = TestBed.inject(ShellApiService);
+    expect(shellApi.headerActions()).toEqual([
+      {
+        ownerAppId: HEALTHY_ENTRY.id,
+        contribution: expect.objectContaining({ id: 'remote.action', label: 'Remote Action' }),
+      },
+    ]);
+  });
+
+  it('automatically deregisters the mounted application\'s header actions on Unmount, so a contribution cannot survive application unload', async () => {
+    vi.mocked(loadRemoteModule).mockResolvedValue({ Component: FakeRemoteComponentWithHeaderAction });
+
+    const fixture = setUp('hello-world', [HEALTHY_ENTRY]);
+    await settle(fixture);
+
+    const shellApi = TestBed.inject(ShellApiService);
+    expect(shellApi.headerActions()).toHaveLength(1);
+
+    fixture.destroy();
+
+    expect(shellApi.headerActions()).toEqual([]);
+  });
+
+  it('is safe to call a header action disposer obtained before Unmount, after Unmount has already occurred', async () => {
+    vi.mocked(loadRemoteModule).mockResolvedValue({ Component: FakeRemoteComponentWithHeaderAction });
+
+    const fixture = setUp('hello-world', [HEALTHY_ENTRY]);
+    await settle(fixture);
+
+    fixture.destroy();
+
+    expect(() => capturedHeaderActionDisposer?.()).not.toThrow();
+
+    const shellApi = TestBed.inject(ShellApiService);
+    expect(shellApi.headerActions()).toEqual([]);
   });
 });
