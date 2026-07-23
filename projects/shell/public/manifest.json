@@ -1,0 +1,12 @@
+{
+  "applications": [
+    {
+      "id": "hello-world-app",
+      "remoteEntryUrl": "http://localhost:4201/remoteEntry.json",
+      "mountPath": "hello-world",
+      "navLabel": "Hello World",
+      "requiredEntitlement": null,
+      "contractVersion": "0.1.0"
+    }
+  ]
+}

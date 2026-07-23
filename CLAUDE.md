@@ -26,3 +26,31 @@ These are binding engineering decisions already ratified in [`docs/architecture/
 14. **Auth & session** — Implemented via a BFF pattern: httpOnly/Secure/SameSite session cookie, raw token held server-side only, never in JS-accessible storage or memory, in the shell or any application. OIDC is the mandatory default identity protocol; SAML is a secondary path for legacy enterprise IdPs only.
 
 **Still open / not yet ratified** (don't treat as decided): shell deployment rollout/rollback strategy, automated accessibility testing layer, SCA-finding remediation SLA policy, feature-flag evaluation mechanism/vendor.
+
+## Implementation mode — working rules
+
+The platform architecture (ARCH-2026-01 through ARCH-2026-06) is frozen and is the source of truth for implementation. Do not redesign or contradict it. If implementation reveals a genuine gap or a decision the architecture didn't anticipate, **raise it as an ADR under `docs/adr/` and get approval before proceeding** — never modify the ARCH documents themselves, and never silently decide.
+
+**ADRs currently in effect:**
+- [ADR-001](docs/adr/ADR-001-milestone-1-workspace-staging.md) — Milestone 1 stages the shell and the first reference application in one workspace as physically isolated projects (tooling-enforced boundary), rather than separate repositories immediately. This is a staging decision, not a change to ARCH-2026-06 Decision 002's target end-state. It is fulfilled and superseded the moment a second real application or a second contributor is introduced — at that point repository separation becomes mandatory.
+
+**Every implementation milestone is planned in this format**, in this order, and approved before any code is written:
+1. Objective
+2. Technical Deliverables
+3. Architecture Validation (which ratified decisions/sections it proves)
+4. Risks
+5. Success Metrics
+6. Exit Criteria
+
+**Scope discipline.** The objective is to prove the platform architecture, not to build functionality ahead of what a milestone requires. If implementation reveals a need for something not in the approved scope for the current milestone (a new manifest field, a new dependency, a new capability), stop and ask before expanding scope — don't silently add it.
+
+**End-of-milestone Architecture Validation Report.** Before starting the next milestone, produce a report answering:
+- Which architectural decisions were successfully validated?
+- Which assumptions proved correct?
+- Which assumptions proved incorrect?
+- Were any ADRs created?
+- Does the implementation still comply with all approved architecture?
+- What technical debt was intentionally accepted?
+- Is it safe to proceed to the next milestone?
+
+Only proceed to the next milestone after this report is reviewed.
