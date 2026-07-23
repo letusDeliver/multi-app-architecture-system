@@ -140,4 +140,88 @@ describe('ShellApiService', () => {
       '[shell-api] capability "dialog" is not registered — call ignored',
     );
   });
+
+  it('registers a header action and attributes it to the owner id supplied by the caller', () => {
+    service.registerHeaderAction({ id: 'a.one', label: 'One', onInvoke: () => {} }, 'app-a');
+
+    expect(service.headerActions()).toEqual([
+      { ownerAppId: 'app-a', contribution: { id: 'a.one', label: 'One', onInvoke: expect.any(Function) } },
+    ]);
+  });
+
+  it('contains a duplicate header action id registered by a different owner (fault scenario)', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    service.registerHeaderAction({ id: 'shared', label: 'From A', onInvoke: () => {} }, 'app-a');
+    service.registerHeaderAction({ id: 'shared', label: 'From B', onInvoke: () => {} }, 'app-b');
+
+    expect(service.headerActions()).toHaveLength(1);
+    expect(service.headerActions()[0].ownerAppId).toBe('app-a');
+    expect(consoleError).toHaveBeenCalledWith(
+      '[extension-registry] contribution id "shared" is already registered — registration ignored',
+    );
+  });
+
+  it('rejects a header action missing a required field without throwing (fault scenario)', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    expect(() =>
+      service.registerHeaderAction({ id: '', label: 'No id', onInvoke: () => {} }, 'app-a'),
+    ).not.toThrow();
+
+    expect(service.headerActions()).toEqual([]);
+    expect(consoleError).toHaveBeenCalledWith(
+      '[shell-api] header action contribution requires a non-empty "id" and "label" — registration ignored',
+    );
+  });
+
+  it('contains a call to registerHeaderAction on an unregistered capability instead of throwing (fault scenario)', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    (service as unknown as { registry: Set<string> }).registry.delete('header-action');
+
+    const dispose = service.registerHeaderAction({ id: 'a.one', label: 'One', onInvoke: () => {} }, 'app-a');
+
+    expect(() => dispose()).not.toThrow();
+    expect(service.headerActions()).toEqual([]);
+    expect(consoleError).toHaveBeenCalledWith(
+      '[shell-api] capability "header-action" is not registered — call ignored',
+    );
+  });
+
+  it('deregisterAllContributions removes only the named application\'s header actions', () => {
+    service.registerHeaderAction({ id: 'a.one', label: 'From A', onInvoke: () => {} }, 'app-a');
+    service.registerHeaderAction({ id: 'b.one', label: 'From B', onInvoke: () => {} }, 'app-b');
+
+    service.deregisterAllContributions('app-a');
+
+    expect(service.headerActions()).toEqual([
+      { ownerAppId: 'app-b', contribution: { id: 'b.one', label: 'From B', onInvoke: expect.any(Function) } },
+    ]);
+  });
+
+  it('is safe when a disposer is invoked after its owning application has already been unloaded', () => {
+    const dispose = service.registerHeaderAction({ id: 'a.one', label: 'One', onInvoke: () => {} }, 'app-a');
+
+    service.deregisterAllContributions('app-a');
+
+    expect(() => dispose()).not.toThrow();
+    expect(service.headerActions()).toEqual([]);
+  });
+
+  it('remains internally consistent across repeated register → unregister → register → unload → register cycles', () => {
+    const disposeFirst = service.registerHeaderAction(
+      { id: 'a.one', label: 'First', onInvoke: () => {} },
+      'app-a',
+    );
+    disposeFirst();
+
+    service.registerHeaderAction({ id: 'a.one', label: 'Second', onInvoke: () => {} }, 'app-a');
+    service.deregisterAllContributions('app-a');
+
+    service.registerHeaderAction({ id: 'a.one', label: 'Third', onInvoke: () => {} }, 'app-a');
+
+    expect(service.headerActions()).toEqual([
+      { ownerAppId: 'app-a', contribution: { id: 'a.one', label: 'Third', onInvoke: expect.any(Function) } },
+    ]);
+  });
 });

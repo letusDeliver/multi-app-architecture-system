@@ -1,6 +1,15 @@
 import { Injectable, signal } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { DialogRequest, ShellPublicApi, Theme, ToastRequest } from '@platform/shell-api-contracts';
+import {
+  DialogRequest,
+  Disposer,
+  HeaderActionContribution,
+  ShellPublicApi,
+  Theme,
+  ToastRequest,
+} from '@platform/shell-api-contracts';
+
+import { ExtensionRegistry } from './extension-registry';
 
 export interface ToastEntry extends ToastRequest {
   readonly id: number;
@@ -20,7 +29,17 @@ interface OpenDialog {
 
 const DEFAULT_TOAST_DURATION_MS = 4000;
 
-type CapabilityId = 'toast' | 'theme' | 'dialog';
+/**
+ * Attributed only when `registerHeaderAction` is called without an owner —
+ * i.e. bypassing the per-mount scoped wrapper `RemoteMountComponent`
+ * constructs for every mounted application (see its `createScopedShellApi`).
+ * No mounted application can ever produce this value itself; it exists so
+ * the method's public signature stays assignable to `ShellPublicApi`'s
+ * single-argument form while still accepting an explicit owner internally.
+ */
+const UNSCOPED_OWNER = '__unscoped__';
+
+type CapabilityId = 'toast' | 'theme' | 'dialog' | 'header-action';
 
 /**
  * The Shell Public API's one concrete implementation (ARCH-2026-03 §3/§4).
@@ -35,10 +54,16 @@ type CapabilityId = 'toast' | 'theme' | 'dialog';
  * incompatible-remote handling. Dialog (Milestone 3) additionally proves the
  * request/response shape: `openDialog` returns a Promise settled by
  * `resolveDialog`/`dismissDialog`/`cancelDialog`, never by the caller directly.
+ * Header Actions (Milestone 4) proves a fourth, structurally distinct shape —
+ * registration-with-lifecycle (ARCH-2026-03 §5) — via the generic
+ * `ExtensionRegistry<T>`; ownership is attributed by `RemoteMountComponent`'s
+ * per-mount scoped wrapper, never by a caller-supplied id, so an application
+ * can neither impersonate another application nor remove or modify a
+ * contribution it doesn't own.
  */
 @Injectable({ providedIn: 'root' })
 export class ShellApiService implements ShellPublicApi {
-  private readonly registry = new Set<CapabilityId>(['toast', 'theme', 'dialog']);
+  private readonly registry = new Set<CapabilityId>(['toast', 'theme', 'dialog', 'header-action']);
 
   private nextToastId = 0;
   private readonly _toasts = signal<readonly ToastEntry[]>([]);
@@ -49,6 +74,9 @@ export class ShellApiService implements ShellPublicApi {
 
   private readonly _dialog = signal<OpenDialog | null>(null);
   readonly dialog = this._dialog.asReadonly();
+
+  private readonly headerActionRegistry = new ExtensionRegistry<HeaderActionContribution>();
+  readonly headerActions = this.headerActionRegistry.entries;
 
   showToast(request: ToastRequest): void {
     if (!this.registry.has('toast')) {
@@ -120,6 +148,43 @@ export class ShellApiService implements ShellPublicApi {
   cancelDialog(): void {
     this._dialog()?.resolve(undefined);
     this._dialog.set(null);
+  }
+
+  /**
+   * `ownerAppId` is not part of `ShellPublicApi.registerHeaderAction`'s
+   * public signature — it's an optional second parameter (which keeps this
+   * method's type assignable to the one-argument interface method) supplied
+   * only by `RemoteMountComponent`'s per-mount scoped wrapper. A mounted
+   * application therefore never chooses, sees, or can forge its own owner
+   * id; that attribution is entirely shell-controlled, which is what makes
+   * impersonation of another application's contribution structurally
+   * impossible rather than merely disallowed by convention.
+   */
+  registerHeaderAction(contribution: HeaderActionContribution, ownerAppId = UNSCOPED_OWNER): Disposer {
+    if (!this.registry.has('header-action')) {
+      this.reportNotRegistered('header-action');
+      return () => {};
+    }
+
+    if (!contribution.id || !contribution.label) {
+      console.error(
+        '[shell-api] header action contribution requires a non-empty "id" and "label" — registration ignored',
+      );
+      return () => {};
+    }
+
+    return this.headerActionRegistry.register(ownerAppId, contribution);
+  }
+
+  /**
+   * Called only by RemoteMountComponent on Unmount (ARCH-2026-03 §2/§5).
+   * Bulk-removes every contribution — of every extension point type, not
+   * just Header Actions — owned by one application, so a mounted
+   * application's contributions can never outlive it. A no-op if it
+   * registered none.
+   */
+  deregisterAllContributions(ownerAppId: string): void {
+    this.headerActionRegistry.deregisterAll(ownerAppId);
   }
 
   private reportNotRegistered(id: CapabilityId): void {

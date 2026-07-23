@@ -1,5 +1,6 @@
 <header>
   <strong>Platform Shell</strong>
+  <app-header-actions-host />
   @if (shellApi.theme$ | async; as theme) {
     <button type="button" (click)="toggleTheme(theme.mode)">
       Switch to {{ theme.mode === 'light' ? 'dark' : 'light' }} mode
