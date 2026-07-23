@@ -4,8 +4,9 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "../../out-tsc/app",
+    "rootDir": "../..",
     "types": []
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "../../packages/shell-api-contracts/src/**/*.ts"],
   "exclude": ["src/**/*.spec.ts"]
 }

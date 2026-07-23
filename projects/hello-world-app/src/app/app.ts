@@ -1,4 +1,6 @@
-import { Component } from '@angular/core';
+import { AsyncPipe } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { SHELL_API } from '@platform/shell-api-contracts';
 
 /**
  * This is the component exposed as './Component' (federation.config.js) —
@@ -11,11 +13,29 @@ import { Component } from '@angular/core';
  * named './Component' is not enough on its own — the shell has no way to
  * know which export inside that module is the mountable one unless the
  * export name itself is part of the contract.
+ *
+ * Milestone 2 adds the Shell Public API v0 consumption: this component
+ * injects SHELL_API — never a shell implementation class — to prove both
+ * base communication patterns end to end: showToast() is application → shell
+ * (Service API), theme$ is shell → application (live context as Observable).
  */
 @Component({
   selector: 'app-root',
-  template: `<p>Hello from hello-world-app — mounted by the shell via Native Federation.</p>`,
+  imports: [AsyncPipe],
+  template: `
+    <p>Hello from hello-world-app — mounted by the shell via Native Federation.</p>
+    @if (shellApi.theme$ | async; as theme) {
+      <p>Shell theme: {{ theme.mode }}</p>
+    }
+    <button type="button" (click)="notifyShell()">Notify via shell</button>
+  `,
 })
-class AppRoot {}
+class AppRoot {
+  protected readonly shellApi = inject(SHELL_API);
+
+  protected notifyShell(): void {
+    this.shellApi.showToast({ message: 'Hello from hello-world-app', severity: 'info' });
+  }
+}
 
 export { AppRoot as Component };

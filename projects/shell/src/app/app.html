@@ -1,5 +1,10 @@
 <header>
   <strong>Platform Shell</strong>
+  @if (shellApi.theme$ | async; as theme) {
+    <button type="button" (click)="toggleTheme(theme.mode)">
+      Switch to {{ theme.mode === 'light' ? 'dark' : 'light' }} mode
+    </button>
+  }
 </header>
 
 <nav aria-label="Applications">
@@ -19,3 +24,5 @@
 <main>
   <router-outlet />
 </main>
+
+<app-toast-host />
