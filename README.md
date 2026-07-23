@@ -20,15 +20,16 @@ The decision log (ARCH-2026-06) is the most actively updated doc — it grows on
 
 Implementation-time decisions that aren't full ARCH documents are recorded as ADRs under [`docs/adr/`](docs/adr/). Each milestone closes with an Architecture Validation Report under [`docs/validation-reports/`](docs/validation-reports/).
 
-## Implementation status: Milestone 1 (walking skeleton)
+## Implementation status: Milestone 2 (Shell Public API v0)
 
 The workspace currently contains two isolated Angular projects, staged in one repository per [ADR-001](docs/adr/ADR-001-milestone-1-workspace-staging.md) pending eventual repository separation (ARCH-2026-06 Decision 002):
 
-- **`projects/shell`** — the platform shell. Fetches a platform manifest at boot (`public/manifest.json`), validates and registers each entry (`@platform/manifest-schema`), renders navigation from the registry, and mounts registered applications on demand via [Native Federation](https://www.npmjs.com/package/@angular-architects/native-federation).
-- **`projects/hello-world-app`** — a trivial reference application, exposed as a Native Federation remote, used to prove the shell/application composition mechanism end to end.
-- **`packages/manifest-schema`** — the `@platform/manifest-schema` contracts package (workspace-local for now), defining the manifest entry shape and Registration-stage validation (structural + contract-version compatibility).
+- **`projects/shell`** — the platform shell. Fetches a platform manifest at boot (`public/manifest.json`), validates and registers each entry (`@platform/manifest-schema`), renders navigation from the registry, and mounts registered applications on demand via [Native Federation](https://www.npmjs.com/package/@angular-architects/native-federation). Also implements the Shell Public API v0 (`ShellApiService`): a shell-owned toast host applications trigger via a Service API call, and a shell-owned `theme$` live context applications consume read-only.
+- **`projects/hello-world-app`** — a trivial reference application, exposed as a Native Federation remote, used to prove the shell/application composition mechanism and now the Shell Public API end to end (it calls `showToast()` and renders the shell's current theme reactively).
+- **`packages/manifest-schema`** — the `@platform/manifest-schema` contracts package, defining the manifest entry shape and Registration-stage validation (structural + contract-version compatibility).
+- **`packages/shell-api-contracts`** — the `@platform/shell-api-contracts` contracts package, exposing exactly what an application needs to consume the Shell Public API: `ToastRequest`, `Theme`, the `ShellPublicApi` interface, and the `SHELL_API` injection token. Applications depend on this package only — never on the shell's concrete `ShellApiService`.
 
-See [`docs/runbooks/add-remove-application.md`](docs/runbooks/add-remove-application.md) for how registering or removing an application is a manifest-only change, and how contained failure (unreachable/incompatible/non-conforming remotes) is verified.
+See [`docs/runbooks/add-remove-application.md`](docs/runbooks/add-remove-application.md) for how registering or removing an application is a manifest-only change, and how contained failure (unreachable/incompatible/non-conforming remotes) is verified. See [`docs/validation-reports/milestone-2.md`](docs/validation-reports/milestone-2.md) for the full Milestone 2 report, including which future Shell Public API capabilities reuse this milestone's communication pattern directly and which need a variant of it.
 
 ### Running it locally
 
