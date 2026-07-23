@@ -3,6 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { loadRemoteModule } from '@angular-architects/native-federation';
 
 import { PlatformManifestService } from './platform-manifest.service';
+import { ShellApiService } from './shell-api.service';
 
 type MountState =
   | { readonly kind: 'loading' }
@@ -46,6 +47,7 @@ export class RemoteMountComponent implements OnInit, OnDestroy {
 
   private readonly route = inject(ActivatedRoute);
   private readonly manifest = inject(PlatformManifestService);
+  private readonly shellApi = inject(ShellApiService);
 
   protected readonly state = signal<MountState>({ kind: 'loading' });
 
@@ -95,5 +97,9 @@ export class RemoteMountComponent implements OnInit, OnDestroy {
     // unload an already-imported module, so this is accepted scope, not an
     // oversight (see Milestone 1 Architecture Validation Report).
     this.mountPoint?.clear();
+
+    // A dialog must not outlive the application that requested it
+    // (Milestone 3 Architecture Validation Report) — a no-op if none is open.
+    this.shellApi.cancelDialog();
   }
 }

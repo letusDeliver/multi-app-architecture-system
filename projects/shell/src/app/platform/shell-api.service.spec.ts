@@ -63,4 +63,81 @@ describe('ShellApiService', () => {
       '[shell-api] capability "theme" is not registered — call ignored',
     );
   });
+
+  it('resolves openDialog with the chosen action value on resolveDialog', async () => {
+    const pending = service.openDialog<'delete' | 'cancel'>({
+      title: 'Confirm',
+      message: 'Are you sure?',
+      actions: [
+        { label: 'Cancel', value: 'cancel' },
+        { label: 'Delete', value: 'delete', variant: 'primary' },
+      ],
+    });
+
+    expect(service.dialog()?.request.title).toBe('Confirm');
+
+    service.resolveDialog('delete');
+
+    expect(await pending).toBe('delete');
+    expect(service.dialog()).toBeNull();
+  });
+
+  it('resolves openDialog with undefined on dismissDialog when dismissible', async () => {
+    const pending = service.openDialog({
+      title: 'Confirm',
+      message: 'Are you sure?',
+      actions: [{ label: 'OK', value: 'ok' }],
+    });
+
+    service.dismissDialog();
+
+    expect(await pending).toBeUndefined();
+    expect(service.dialog()).toBeNull();
+  });
+
+  it('ignores dismissDialog when the open dialog is marked non-dismissible', async () => {
+    const pending = service.openDialog({
+      title: 'Confirm',
+      message: 'Are you sure?',
+      actions: [{ label: 'OK', value: 'ok' }],
+      dismissible: false,
+    });
+
+    service.dismissDialog();
+    expect(service.dialog()).not.toBeNull();
+
+    service.resolveDialog('ok');
+    expect(await pending).toBe('ok');
+  });
+
+  it('resolves an open dialog with undefined on cancelDialog, regardless of dismissible', async () => {
+    const pending = service.openDialog({
+      title: 'Confirm',
+      message: 'Are you sure?',
+      actions: [{ label: 'OK', value: 'ok' }],
+      dismissible: false,
+    });
+
+    service.cancelDialog();
+
+    expect(await pending).toBeUndefined();
+    expect(service.dialog()).toBeNull();
+  });
+
+  it('contains a call to openDialog on an unregistered capability instead of throwing (fault scenario)', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    (service as unknown as { registry: Set<string> }).registry.delete('dialog');
+
+    const result = await service.openDialog({
+      title: 'Confirm',
+      message: 'Are you sure?',
+      actions: [{ label: 'OK', value: 'ok' }],
+    });
+
+    expect(result).toBeUndefined();
+    expect(service.dialog()).toBeNull();
+    expect(consoleError).toHaveBeenCalledWith(
+      '[shell-api] capability "dialog" is not registered — call ignored',
+    );
+  });
 });

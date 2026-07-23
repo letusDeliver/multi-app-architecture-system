@@ -9,6 +9,7 @@ vi.mock('@angular-architects/native-federation', () => ({
 import { loadRemoteModule } from '@angular-architects/native-federation';
 import { RemoteMountComponent } from './remote-mount.component';
 import { PlatformManifestService, RegisteredApplication } from './platform-manifest.service';
+import { ShellApiService } from './shell-api.service';
 
 const HEALTHY_ENTRY: RegisteredApplication = {
   id: 'hello-world-app',
@@ -92,5 +93,25 @@ describe('RemoteMountComponent', () => {
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('currently unavailable');
+  });
+
+  it('resolves any open dialog with undefined on Unmount, so it does not outlive the application', async () => {
+    vi.mocked(loadRemoteModule).mockResolvedValue({ Component: FakeRemoteComponent });
+
+    const fixture = setUp('hello-world', [HEALTHY_ENTRY]);
+    await settle(fixture);
+
+    const shellApi = TestBed.inject(ShellApiService);
+    const pending = shellApi.openDialog({
+      title: 'Confirm',
+      message: 'Are you sure?',
+      actions: [{ label: 'OK', value: 'ok' }],
+      dismissible: false,
+    });
+
+    fixture.destroy();
+
+    expect(await pending).toBeUndefined();
+    expect(shellApi.dialog()).toBeNull();
   });
 });

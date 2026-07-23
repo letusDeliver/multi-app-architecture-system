@@ -1,5 +1,5 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { SHELL_API } from '@platform/shell-api-contracts';
 
 /**
@@ -14,10 +14,12 @@ import { SHELL_API } from '@platform/shell-api-contracts';
  * know which export inside that module is the mountable one unless the
  * export name itself is part of the contract.
  *
- * Milestone 2 adds the Shell Public API v0 consumption: this component
+ * Milestone 2 added the Shell Public API v0 consumption: this component
  * injects SHELL_API — never a shell implementation class — to prove both
  * base communication patterns end to end: showToast() is application → shell
  * (Service API), theme$ is shell → application (live context as Observable).
+ * Milestone 3 adds openDialog() — application → shell request/response —
+ * completing the three communication shapes from ARCH-2026-03 §3/§4.
  */
 @Component({
   selector: 'app-root',
@@ -28,13 +30,30 @@ import { SHELL_API } from '@platform/shell-api-contracts';
       <p>Shell theme: {{ theme.mode }}</p>
     }
     <button type="button" (click)="notifyShell()">Notify via shell</button>
+    <button type="button" (click)="confirmViaShell()">Ask shell to confirm</button>
+    @if (lastDialogResult(); as result) {
+      <p>Shell dialog resolved with: {{ result }}</p>
+    }
   `,
 })
 class AppRoot {
   protected readonly shellApi = inject(SHELL_API);
+  protected readonly lastDialogResult = signal<string | undefined>(undefined);
 
   protected notifyShell(): void {
     this.shellApi.showToast({ message: 'Hello from hello-world-app', severity: 'info' });
+  }
+
+  protected async confirmViaShell(): Promise<void> {
+    const result = await this.shellApi.openDialog<'delete' | 'cancel'>({
+      title: 'Confirm action',
+      message: "Requested by hello-world-app — the shell owns this dialog's chrome entirely.",
+      actions: [
+        { label: 'Cancel', value: 'cancel' },
+        { label: 'Delete', value: 'delete', variant: 'primary' },
+      ],
+    });
+    this.lastDialogResult.set(result ?? 'dismissed');
   }
 }
 
