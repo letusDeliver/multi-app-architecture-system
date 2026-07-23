@@ -17,6 +17,10 @@ import { routes } from './app.routes';
 const standaloneShellApiStub: ShellPublicApi = {
   showToast: (request) => console.info(`[standalone dev] toast: ${request.message}`),
   theme$: of({ mode: 'light' }),
+  openDialog: (request) => {
+    console.info(`[standalone dev] dialog: ${request.title}`);
+    return Promise.resolve(undefined);
+  },
 };
 
 export const appConfig: ApplicationConfig = {

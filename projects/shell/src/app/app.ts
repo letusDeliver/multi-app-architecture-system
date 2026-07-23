@@ -2,13 +2,14 @@ import { AsyncPipe } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 
+import { DialogHostComponent } from './platform/dialog-host.component';
 import { PlatformManifestService } from './platform/platform-manifest.service';
 import { ShellApiService } from './platform/shell-api.service';
 import { ToastHostComponent } from './platform/toast-host.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, AsyncPipe, ToastHostComponent],
+  imports: [RouterOutlet, RouterLink, AsyncPipe, ToastHostComponent, DialogHostComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

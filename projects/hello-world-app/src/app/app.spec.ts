@@ -6,13 +6,19 @@ import { Component as AppRoot } from './app';
 
 describe('AppRoot (exposed as "./Component")', () => {
   let showToast: ReturnType<typeof vi.fn<(request: ToastRequest) => void>>;
+  let openDialog: ReturnType<typeof vi.fn<(request: unknown) => Promise<unknown>>>;
   let theme$: Subject<{ mode: 'light' | 'dark' }>;
 
   beforeEach(async () => {
     showToast = vi.fn();
+    openDialog = vi.fn().mockResolvedValue('delete');
     theme$ = new Subject();
 
-    const shellApiStub: ShellPublicApi = { showToast, theme$ };
+    const shellApiStub: ShellPublicApi = {
+      showToast,
+      theme$,
+      openDialog: openDialog as unknown as ShellPublicApi['openDialog'],
+    };
 
     await TestBed.configureTestingModule({
       imports: [AppRoot],
@@ -43,6 +49,22 @@ describe('AppRoot (exposed as "./Component")', () => {
       message: 'Hello from hello-world-app',
       severity: 'info',
     });
+  });
+
+  it('calls SHELL_API.openDialog — never rendering its own modal UI — and displays the resolved value', async () => {
+    const fixture = TestBed.createComponent(AppRoot);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const buttons = compiled.querySelectorAll('button');
+    buttons[1].dispatchEvent(new Event('click'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(openDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Confirm action' }),
+    );
+    expect(compiled.textContent).toContain('Shell dialog resolved with: delete');
   });
 
   it('renders the shell-owned theme reactively, as a pure consumer of theme$', () => {
