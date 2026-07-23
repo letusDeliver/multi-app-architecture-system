@@ -18,22 +18,45 @@ Platform-level design decisions are documented under [`docs/architecture/`](docs
 
 The decision log (ARCH-2026-06) is the most actively updated doc — it grows one ratified decision at a time as the platform's implementation approach is worked out.
 
-## Development server
+Implementation-time decisions that aren't full ARCH documents are recorded as ADRs under [`docs/adr/`](docs/adr/). Each milestone closes with an Architecture Validation Report under [`docs/validation-reports/`](docs/validation-reports/).
 
-To start a local development server, run:
+## Implementation status: Milestone 1 (walking skeleton)
+
+The workspace currently contains two isolated Angular projects, staged in one repository per [ADR-001](docs/adr/ADR-001-milestone-1-workspace-staging.md) pending eventual repository separation (ARCH-2026-06 Decision 002):
+
+- **`projects/shell`** — the platform shell. Fetches a platform manifest at boot (`public/manifest.json`), validates and registers each entry (`@platform/manifest-schema`), renders navigation from the registry, and mounts registered applications on demand via [Native Federation](https://www.npmjs.com/package/@angular-architects/native-federation).
+- **`projects/hello-world-app`** — a trivial reference application, exposed as a Native Federation remote, used to prove the shell/application composition mechanism end to end.
+- **`packages/manifest-schema`** — the `@platform/manifest-schema` contracts package (workspace-local for now), defining the manifest entry shape and Registration-stage validation (structural + contract-version compatibility).
+
+See [`docs/runbooks/add-remove-application.md`](docs/runbooks/add-remove-application.md) for how registering or removing an application is a manifest-only change, and how contained failure (unreachable/incompatible/non-conforming remotes) is verified.
+
+### Running it locally
 
 ```bash
-ng serve
+bun install
+
+# Serve the reference application (remote) and the shell (host) — see note below.
+bun run start:hello-world-app   # http://localhost:4201
+bun run start:shell             # http://localhost:4200
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+> Note: on this maintainer's local setup, Angular's Vite-based dev server (`ng serve`) currently fails under the Bun runtime (a Bun/Vite compatibility issue unrelated to this project's code). Milestone 1 was verified instead by building both projects (`bun run build`) and serving the static `dist/` output — see the runbook for details. If your environment runs `ng serve` under Node.js, the dev-server workflow above should work normally.
+
+### Building and testing
+
+```bash
+bun run build          # builds both projects
+bun run test           # unit tests for both projects
+bun run test:empty-shell  # ARCH-2026-02 §5's permanent empty-shell gate
+bun run lint            # ARCH-2026-02 §4 boundary enforcement (ADR-001)
+```
 
 ## Code scaffolding
 
 Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
 
 ```bash
-ng generate component component-name
+ng generate component component-name --project shell
 ```
 
 For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
@@ -41,34 +64,6 @@ For a complete list of available schematics (such as `components`, `directives`,
 ```bash
 ng generate --help
 ```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
 
 ## Additional Resources
 

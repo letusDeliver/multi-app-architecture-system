@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  boundary-lint:
+    name: Boundary lint (ARCH-2026-02 §4)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+
+  shell-build-and-test:
+    name: Shell build & unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bunx ng build shell --configuration development
+      - run: bunx ng test shell --watch=false
+
+  # ARCH-2026-02 §5: the shell must build, boot, and pass its full test suite
+  # with zero applications registered. This is a permanent gate, not a
+  # one-time claim — it runs on every push/PR, same as any other check.
+  empty-shell-gate:
+    name: Empty-shell gate (ARCH-2026-02 §5)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bunx ng build shell --configuration empty-shell
+      - run: bunx ng test shell --configuration empty-shell --watch=false
+
+  hello-world-app-build-and-test:
+    name: hello-world-app build & unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bunx ng build hello-world-app --configuration development
+      - run: bunx ng test hello-world-app --watch=false

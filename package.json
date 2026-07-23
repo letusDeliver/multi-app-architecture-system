@@ -3,30 +3,45 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
-    "build": "ng build",
-    "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "start:shell": "ng serve shell",
+    "start:hello-world-app": "ng serve hello-world-app",
+    "build:shell": "ng build shell",
+    "build:hello-world-app": "ng build hello-world-app",
+    "build": "ng build shell && ng build hello-world-app",
+    "test:shell": "ng test shell",
+    "test:hello-world-app": "ng test hello-world-app",
+    "test": "ng test shell && ng test hello-world-app",
+    "test:empty-shell": "ng build shell --configuration empty-shell && ng test shell --configuration empty-shell --watch=false",
+    "lint": "eslint projects/shell/src projects/hello-world-app/src"
   },
   "private": true,
   "packageManager": "bun@1.3.14",
+  "workspaces": ["packages/*"],
   "dependencies": {
+    "@angular/animations": "^21.2.0",
     "@angular/common": "^21.2.0",
     "@angular/compiler": "^21.2.0",
     "@angular/core": "^21.2.0",
     "@angular/forms": "^21.2.0",
     "@angular/platform-browser": "^21.2.0",
     "@angular/router": "^21.2.0",
+    "@platform/manifest-schema": "workspace:*",
+    "@softarc/native-federation-node": "^3.3.4",
+    "es-module-shims": "^1.5.12",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
+    "@angular-architects/native-federation": "21.2.5",
+    "@angular-devkit/build-angular": "^21.2.19",
     "@angular/build": "^21.2.19",
     "@angular/cli": "^21.2.19",
     "@angular/compiler-cli": "^21.2.0",
+    "eslint": "^10.7.0",
     "jsdom": "^28.0.0",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2",
+    "typescript-eslint": "^8.65.0",
     "vitest": "^4.0.8"
   }
 }

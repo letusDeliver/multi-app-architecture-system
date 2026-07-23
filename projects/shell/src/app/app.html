@@ -1,0 +1,21 @@
+<header>
+  <strong>Platform Shell</strong>
+</header>
+
+<nav aria-label="Applications">
+  @if (!manifest.discoveryComplete()) {
+    <p>Discovering applications…</p>
+  } @else if (manifest.registeredApplications().length === 0) {
+    <p>No applications registered.</p>
+  } @else {
+    <ul>
+      @for (registeredApp of manifest.registeredApplications(); track registeredApp.id) {
+        <li><a [routerLink]="['/', registeredApp.mountPath]">{{ registeredApp.navLabel }}</a></li>
+      }
+    </ul>
+  }
+</nav>
+
+<main>
+  <router-outlet />
+</main>

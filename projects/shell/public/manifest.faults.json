@@ -1,0 +1,36 @@
+{
+  "applications": [
+    {
+      "id": "hello-world-app",
+      "remoteEntryUrl": "http://localhost:4201/remoteEntry.json",
+      "mountPath": "hello-world",
+      "navLabel": "Hello World (healthy)",
+      "requiredEntitlement": null,
+      "contractVersion": "0.1.0"
+    },
+    {
+      "id": "unreachable-app",
+      "remoteEntryUrl": "http://localhost:9999/remoteEntry.json",
+      "mountPath": "unreachable",
+      "navLabel": "Unreachable App",
+      "requiredEntitlement": null,
+      "contractVersion": "0.1.0"
+    },
+    {
+      "id": "incompatible-app",
+      "remoteEntryUrl": "http://localhost:4201/remoteEntry.json",
+      "mountPath": "incompatible",
+      "navLabel": "Incompatible App",
+      "requiredEntitlement": null,
+      "contractVersion": "9.9.9"
+    },
+    {
+      "id": "non-conforming-app",
+      "remoteEntryUrl": "http://localhost:4200/remoteEntry.json",
+      "mountPath": "non-conforming",
+      "navLabel": "Non-conforming App",
+      "requiredEntitlement": null,
+      "contractVersion": "0.1.0"
+    }
+  ]
+}
